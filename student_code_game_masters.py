@@ -34,7 +34,19 @@ class TowerOfHanoiGame(GameMaster):
             A Tuple of Tuples that represent the game state
         """
         ### student code goes here
-        pass
+
+        # Find out what's on each peg
+        gameState = self.kb.kb_ask(parse_input("fact: (on ?x ?y)"))
+
+        # Set up a new list to represent each peg
+        states = [list(), list(), list()]
+
+        # Loop through the bindings and add the disk number to the appropriate peg numer
+        for binding in gameState:
+            states[int(binding.bindings_dict["?y"][-1])-1].append(int(binding.bindings_dict["?x"][-1]))
+
+        # Return the sorted lists as tuples
+        return tuple((tuple(sorted(states[0])), tuple(sorted(states[1])), tuple(sorted(states[2]))))
 
     def makeMove(self, movable_statement):
         """
@@ -53,7 +65,54 @@ class TowerOfHanoiGame(GameMaster):
             None
         """
         ### Student code goes here
-        pass
+
+#        print("Making move: {}", movable_statement)
+#        print("Before move kb:")
+#        print(self.kb)
+
+        # Change which peg the moving disk is on, which disk is now on top of each peg, and what the top is
+
+        # Retract the target peg being empty
+        self.kb.kb_retract(parse_input("fact: (empty {})".format(movable_statement.terms[2])))
+
+        # Retract that disk is on starting peg
+        self.kb.kb_retract(parse_input("fact: (on {} {})".format(movable_statement.terms[0], movable_statement.terms[1])))
+
+        # Retract that disk is the top of starting peg
+        self.kb.kb_retract(parse_input("fact: (top {} {})".format(movable_statement.terms[0], movable_statement.terms[1])))
+
+        # Retract that some other disk is on top of the target peg
+        oldPeg = self.kb.kb_ask(parse_input("fact: (top ?x {})".format(movable_statement.terms[2])))
+        if oldPeg:
+            self.kb.kb_retract(
+                parse_input("fact: (top {} {})".format(oldPeg[0].bindings_dict["?x"], movable_statement.terms[2])))
+
+        # Add that disk is on target peg
+        self.kb.kb_assert(parse_input("fact: (on {} {})".format(movable_statement.terms[0], movable_statement.terms[2])))
+
+        # Add that disk is the top of target peg
+        self.kb.kb_assert(parse_input("fact: (top {} {})".format(movable_statement.terms[0], movable_statement.terms[2])))
+
+        # Assert that either some new disk is on top of starting peg, or starting peg is empty
+
+        # Find out what's left on the old peg
+        oldPeg = self.kb.kb_ask(parse_input("fact: (on ?x {})".format(movable_statement.terms[1])))
+        if oldPeg:
+            # If there are still disks left on the old peg, get the smallest since it must be on top
+            oldPegDisks = list()
+            for binding in oldPeg:
+                oldPegDisks.append(int(binding.bindings_dict["?x"][-1]))
+
+            # Assert that there's a new disk on top of the old peg
+            self.kb.kb_assert(parse_input("fact: (top {} {})".format("disk"+str(sorted(oldPegDisks)[0]), movable_statement.terms[1])))
+
+        else:
+            # Since no disks were found on the old peg, assert that it's empty
+            self.kb.kb_assert(parse_input("fact: (empty {})".format(movable_statement.terms[1])))
+
+#        print("After move kb:")
+#        print(self.kb)
+
 
     def reverseMove(self, movable_statement):
         """
@@ -99,8 +158,23 @@ class Puzzle8Game(GameMaster):
         Returns:
             A Tuple of Tuples that represent the game state
         """
-        ### Student code goes here
-        pass
+
+        # Find out where everything is
+        gameState = self.kb.kb_ask(parse_input("fact: (coordinate ?tile ?pos_x ?pos_y)"))
+
+        # Set up a new list to represent each row
+        states = [[None] * 3, [None] * 3, [None] * 3]
+
+        # Loop through the bindings and add the tile number to the appropriate row
+        for binding in gameState:
+            if binding.bindings_dict["?tile"][0:4] == "tile":
+                states[int(binding.bindings_dict["?pos_y"][-1])-1][int(binding.bindings_dict["?pos_x"][-1])-1] =int(binding.bindings_dict["?tile"][-1])
+            else:
+                states[int(binding.bindings_dict["?pos_y"][-1])-1][int(binding.bindings_dict["?pos_x"][-1])-1] = -1
+
+        # Return the sorted lists as tuples
+        return tuple((tuple(states[0]), tuple(states[1]), tuple(states[2])))
+
 
     def makeMove(self, movable_statement):
         """
@@ -119,7 +193,20 @@ class Puzzle8Game(GameMaster):
             None
         """
         ### Student code goes here
-        pass
+
+        # Since the move is permissible, retract the position of the tile and empty, and replace with their new, swapped positions
+
+        # Retract the position of the tile
+        self.kb.kb_retract(parse_input("fact: (coordinate {} {} {})".format(movable_statement.terms[0], movable_statement.terms[1], movable_statement.terms[2])))
+
+        # Retract the position of the empty
+        self.kb.kb_retract(parse_input("fact: (coordinate empty {} {})".format(movable_statement.terms[3], movable_statement.terms[4])))
+
+        # Assert the new position of the tile
+        self.kb.kb_assert(parse_input("fact: (coordinate {} {} {})".format(movable_statement.terms[0], movable_statement.terms[3], movable_statement.terms[4])))
+
+        # Assert the new position of the empty
+        self.kb.kb_assert(parse_input("fact: (coordinate empty {} {})".format(movable_statement.terms[1], movable_statement.terms[2])))
 
     def reverseMove(self, movable_statement):
         """
